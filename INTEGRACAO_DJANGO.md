@@ -84,6 +84,7 @@ class Vehicle(models.Model):
         ('disponivel', 'Disponível'),
         ('uso', 'Em Uso'),
         ('manutencao', 'Em Manutenção'),
+        ('canteiro', 'Alocado em Canteiro'),
     ]
 
     FUEL_CHOICES = [
@@ -108,9 +109,28 @@ class Vehicle(models.Model):
     color = models.CharField(max_length=30)
     image_url = models.URLField(max_length=500, blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
+    
+    # Novos campos adicionados para suporte a canteiros e manutenções preventivas
+    construction_site = models.CharField(max_length=150, blank=True, null=True)
+    next_preventive_date = models.CharField(max_length=15, blank=True, null=True) # YYYY-MM-DD
+    preventive_period_month = models.IntegerField(blank=True, null=True)
+    active = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.brand} {self.model} ({self.plate})"
+
+
+class Driver(models.Model):
+    id = models.CharField(max_length=50, primary_key=True) # ID "d_timestamp" ou UUID
+    name = models.CharField(max_length=100)
+    cpf = models.CharField(max_length=14, unique=True)
+    cnh = models.CharField(max_length=15, unique=True)
+    cnh_expiry = models.CharField(max_length=15) # YYYY-MM-DD
+    cnh_category = models.CharField(max_length=2, default='B')
+    active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.name} (CNH: {self.cnh})"
 
 
 class Booking(models.Model):
@@ -180,12 +200,29 @@ Você pode criar uma API robusta de forma rápida usando o **Django REST Framewo
 ```python
 # seu_app/serializers.py
 from rest_framework import serializers
-from .models import Vehicle, Booking, Maintenance
+from .models import Vehicle, Booking, Maintenance, Driver
 
 class VehicleSerializer(serializers.ModelSerializer):
+    imageUrl = serializers.URLField(source='image_url', required=False, allow_null=True, allow_blank=True)
+    constructionSite = serializers.CharField(source='construction_site', required=False, allow_null=True, allow_blank=True)
+    nextPreventiveDate = serializers.CharField(source='next_preventive_date', required=False, allow_null=True, allow_blank=True)
+    preventivePeriodMonth = serializers.IntegerField(source='preventive_period_month', required=False, allow_null=True)
+
     class Meta:
         model = Vehicle
-        fields = '__all__'
+        fields = [
+            'id', 'brand', 'model', 'year', 'plate', 'type', 'fuel', 
+            'km', 'status', 'capacity', 'color', 'imageUrl', 'notes',
+            'constructionSite', 'nextPreventiveDate', 'preventivePeriodMonth', 'active'
+        ]
+
+class DriverSerializer(serializers.ModelSerializer):
+    cnhExpiry = serializers.CharField(source='cnh_expiry')
+    cnhCategory = serializers.CharField(source='cnh_category')
+
+    class Meta:
+        model = Driver
+        fields = ['id', 'name', 'cpf', 'cnh', 'cnhExpiry', 'cnhCategory', 'active']
 
 class BookingSerializer(serializers.ModelSerializer):
     # Permite receber o ID do veículo ao criar ou ler
@@ -230,12 +267,16 @@ class MaintenanceSerializer(serializers.ModelSerializer):
 ```python
 # seu_app/views.py
 from rest_framework import viewsets
-from .models import Vehicle, Booking, Maintenance
-from .serializers import VehicleSerializer, BookingSerializer, MaintenanceSerializer
+from .models import Vehicle, Booking, Maintenance, Driver
+from .serializers import VehicleSerializer, BookingSerializer, MaintenanceSerializer, DriverSerializer
 
 class VehicleViewSet(viewsets.ModelViewSet):
     queryset = Vehicle.objects.all()
     serializer_class = VehicleSerializer
+
+class DriverViewSet(viewsets.ModelViewSet):
+    queryset = Driver.objects.all()
+    serializer_class = DriverSerializer
 
 class BookingViewSet(viewsets.ModelViewSet):
     queryset = Booking.objects.all()
@@ -251,10 +292,11 @@ class MaintenanceViewSet(viewsets.ModelViewSet):
 # seu_projeto/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from seu_app.views import VehicleViewSet, BookingViewSet, MaintenanceViewSet
+from seu_app.views import VehicleViewSet, BookingViewSet, MaintenanceViewSet, DriverViewSet
 
 router = DefaultRouter()
 router.register(r'vehicles', VehicleViewSet)
+router.register(r'drivers', DriverViewSet)
 router.register(r'bookings', BookingViewSet)
 router.register(r'maintenance', MaintenanceViewSet)
 

@@ -154,15 +154,17 @@ async function syncWithDjangoBackend() {
 
   showGlobalLoader('Sincronizando com Django...');
   try {
-    const [djangoVehicles, djangoBookings, djangoMaintenances] = await Promise.all([
+    const [djangoVehicles, djangoBookings, djangoMaintenances, djangoDrivers] = await Promise.all([
       fetchFromDjangoAPI('vehicles/'),
       fetchFromDjangoAPI('bookings/'),
-      fetchFromDjangoAPI('maintenance/')
+      fetchFromDjangoAPI('maintenance/'),
+      fetchFromDjangoAPI('drivers/').catch(() => null)
     ]);
 
     if (djangoVehicles && djangoVehicles.length > 0) vehicles = djangoVehicles;
     if (djangoBookings && djangoBookings.length > 0) bookings = djangoBookings;
     if (djangoMaintenances && djangoMaintenances.length > 0) maintenances = djangoMaintenances;
+    if (djangoDrivers && djangoDrivers.length > 0) drivers = djangoDrivers;
 
     apiErrorMessage = null;
     showToast('Conectado ao Django com sucesso!', 'info');

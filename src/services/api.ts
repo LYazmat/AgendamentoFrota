@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Vehicle, Booking, MaintenanceRecord } from '../types';
-import { INITIAL_VEHICLES, INITIAL_BOOKINGS, INITIAL_MAINTENANCE } from '../initialData';
+import { Vehicle, Booking, Driver, MaintenanceRecord } from '../types';
+import { INITIAL_VEHICLES, INITIAL_BOOKINGS, INITIAL_DRIVERS, INITIAL_MAINTENANCE } from '../initialData';
 
 // --- CONFIGURAÇÃO DE INTEGRAÇÃO COM DJANGO ---
 // Mude para `true` quando conectar ao seu servidor Django backend!
@@ -219,3 +219,70 @@ export const MaintenancesService = {
     if (!response.ok) throw new Error('Erro ao excluir manutenção no Django');
   }
 };
+
+/**
+ * SERVIÇO DE MOTORISTAS (DRIVERS API)
+ */
+export const DriversService = {
+  // Obter todos os motoristas
+  async getAll(): Promise<Driver[]> {
+    if (!USE_DJANGO_API) {
+      const saved = localStorage.getItem('fleet_drivers_v1');
+      return saved ? JSON.parse(saved) : INITIAL_DRIVERS;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/drivers/`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error('Erro ao obter motoristas do Django');
+    return response.json();
+  },
+
+  // Salvar motorista (Novo ou Edição)
+  async save(driver: Driver): Promise<Driver> {
+    if (!USE_DJANGO_API) {
+      const saved = await this.getAll();
+      const exists = saved.some(d => d.id === driver.id);
+      let updated: Driver[];
+
+      if (exists) {
+        updated = saved.map(d => d.id === driver.id ? driver : d);
+      } else {
+        updated = [driver, ...saved];
+      }
+      localStorage.setItem('fleet_drivers_v1', JSON.stringify(updated));
+      return driver;
+    }
+
+    const isExisting = driver.id && !driver.id.startsWith('d_');
+    const url = isExisting 
+      ? `${API_BASE_URL}/api/drivers/${driver.id}/` 
+      : `${API_BASE_URL}/api/drivers/`;
+
+    const response = await fetch(url, {
+      method: isExisting ? 'PUT' : 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(driver),
+    });
+    if (!response.ok) throw new Error('Erro ao salvar motorista no Django');
+    return response.json();
+  },
+
+  // Remover motorista
+  async delete(id: string): Promise<void> {
+    if (!USE_DJANGO_API) {
+      const saved = await this.getAll();
+      const filtered = saved.filter(d => d.id !== id);
+      localStorage.setItem('fleet_drivers_v1', JSON.stringify(filtered));
+      return;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/drivers/${id}/`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error('Erro ao excluir motorista no Django');
+  }
+};
+
