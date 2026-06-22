@@ -1,0 +1,6 @@
+{
+  "name": "Agendamento de Veículos",
+  "description": "Sistema completo e otimizado para agendamento, controle de retirada, devolução e gestão de veículos da frota.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
